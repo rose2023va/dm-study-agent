@@ -2038,23 +2038,25 @@ async function notionRequest(endpoint, method, body) {
 async function logSessionToNotion(sessionData) {
   const { topic, promptType, duration, confidence, understood, needsReview, nextAction } = sessionData;
   const today = new Date().toISOString().split('T')[0];
-  const sessionTitle = `${topic} — ${promptType} (${today})`;
+  const sessionTitle = topic + ' — ' + promptType + ' (' + today + ')';
 
   try {
+    const props = {
+      'Session': { title: [{ text: { content: sessionTitle } }] },
+      'Date': { date: { start: today } },
+      'Topic': { select: { name: topic } },
+      'Prompt Type': { select: { name: promptType } },
+      'Status': { select: { name: 'Done' } }
+    };
+    if (duration) props['Duration (min)'] = { number: parseInt(duration) };
+    if (confidence) props['Confidence'] = { select: { name: confidence } };
+    if (understood) props['What I Understood'] = { rich_text: [{ text: { content: understood } }] };
+    if (needsReview) props['What Needs Review'] = { rich_text: [{ text: { content: needsReview } }] };
+    if (nextAction) props['Next Action'] = { rich_text: [{ text: { content: nextAction } }] };
+
     await notionRequest('/v1/pages', 'POST', {
       parent: { database_id: NOTION_SESSION_LOG_DB },
-      properties: {
-        'Session': { title: [{ text: { content: sessionTitle } }] },
-        'date:Date:start': today,
-        'Topic': { select: { name: topic } },
-        'Prompt Type': { select: { name: promptType } },
-        'Duration (min)': duration ? { number: duration } : undefined,
-        'Confidence': confidence ? { select: { name: confidence } } : undefined,
-        'What I Understood': understood ? { rich_text: [{ text: { content: understood } }] } : undefined,
-        'What Needs Review': needsReview ? { rich_text: [{ text: { content: needsReview } }] } : undefined,
-        'Next Action': nextAction ? { rich_text: [{ text: { content: nextAction } }] } : undefined,
-        'Status': { select: { name: 'Done' } }
-      }
+      properties: props
     });
     showToast('✓ Session logged to Notion');
     return true;
@@ -2067,17 +2069,18 @@ async function logSessionToNotion(sessionData) {
 async function addRememberRule(rule, topic, explanation, example, commonMistake) {
   const today = new Date().toISOString().split('T')[0];
   try {
+    const ruleProps = {
+      'Rule': { title: [{ text: { content: rule } }] },
+      'Topic': { select: { name: topic || 'General' } },
+      'Date Added': { date: { start: today } },
+      'Review Count': { number: 0 }
+    };
+    if (explanation) ruleProps['Explanation'] = { rich_text: [{ text: { content: explanation } }] };
+    if (example) ruleProps['Example'] = { rich_text: [{ text: { content: example } }] };
+    if (commonMistake) ruleProps['Common Mistake'] = { rich_text: [{ text: { content: commonMistake } }] };
     await notionRequest('/v1/pages', 'POST', {
       parent: { database_id: NOTION_RULES_DB },
-      properties: {
-        'Rule': { title: [{ text: { content: rule } }] },
-        'Topic': { select: { name: topic || 'General' } },
-        'Explanation': explanation ? { rich_text: [{ text: { content: explanation } }] } : undefined,
-        'Example': example ? { rich_text: [{ text: { content: example } }] } : undefined,
-        'Common Mistake': commonMistake ? { rich_text: [{ text: { content: commonMistake } }] } : undefined,
-        'date:Date Added:start': today,
-        'Review Count': { number: 0 }
-      }
+      properties: ruleProps
     });
     showToast('✓ Rule saved to Notion');
     return true;
@@ -2098,11 +2101,11 @@ async function updateTopicProgress(topicName, confidence, status, weakAreas) {
 
     const today = new Date().toISOString().split('T')[0];
     const props = {
-      'Confidence': confidence ? { select: { name: confidence } } : undefined,
-      'Status': status ? { select: { name: status } } : undefined,
-      'Weak Areas': weakAreas ? { rich_text: [{ text: { content: weakAreas } }] } : undefined,
-      'date:Last Studied:start': today
+      'Last Studied': { date: { start: today } }
     };
+    if (confidence) props['Confidence'] = { select: { name: confidence } };
+    if (status) props['Status'] = { select: { name: status } };
+    if (weakAreas) props['Weak Areas'] = { rich_text: [{ text: { content: weakAreas } }] };
 
     if (search.results && search.results.length > 0) {
       // Update existing
