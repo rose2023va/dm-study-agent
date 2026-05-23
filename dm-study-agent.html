@@ -1,0 +1,1922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CM1020 DM Study Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Raleway:wght@300;400;500;600;700&family=Fira+Code:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --black: #000000;
+  --black-1: #0a0a0a;
+  --black-2: #111111;
+  --black-3: #1a1a1a;
+  --black-4: #222222;
+  --white: #ffffff;
+  --white-2: rgba(255,255,255,0.85);
+  --white-3: rgba(255,255,255,0.5);
+  --white-4: rgba(255,255,255,0.15);
+  --white-5: rgba(255,255,255,0.06);
+  --grad-1: #7c3aed;
+  --grad-2: #2563eb;
+  --grad-3: #06b6d4;
+  --grad-4: #8b5cf6;
+  --glow: rgba(124,58,237,0.4);
+  --glow-2: rgba(6,182,212,0.3);
+  --font: 'Raleway', sans-serif;
+  --mono: 'Fira Code', monospace;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--black);
+  color: var(--white);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+/* Gradient orbs */
+.orb {
+  position: fixed;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+.orb-1 { width: 500px; height: 500px; background: radial-gradient(circle, rgba(124,58,237,0.15), transparent 70%); top: -100px; left: -100px; }
+.orb-2 { width: 400px; height: 400px; background: radial-gradient(circle, rgba(6,182,212,0.12), transparent 70%); bottom: -80px; right: -80px; }
+.orb-3 { width: 300px; height: 300px; background: radial-gradient(circle, rgba(37,99,235,0.1), transparent 70%); top: 40%; left: 40%; }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--black); }
+::-webkit-scrollbar-thumb { background: var(--white-4); border-radius: 2px; }
+
+/* Layout */
+#app { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+/* Sidebar */
+#sidebar {
+  width: 260px;
+  min-height: 100vh;
+  background: var(--black-1);
+  border-right: 1px solid var(--white-5);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 100;
+  overflow-y: auto;
+}
+
+.sidebar-logo {
+  padding: 1.5rem;
+  border-bottom: 1px solid var(--white-5);
+}
+.sidebar-logo h1 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--grad-1), var(--grad-3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.sidebar-logo p {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--white-3);
+  margin-top: 2px;
+}
+
+/* Topic nav */
+.sidebar-section { padding: 1rem 0; }
+.sidebar-section-title {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--white-3);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0 1.5rem 0.5rem;
+}
+.topic-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-left: 2px solid transparent;
+}
+.topic-item:hover { background: var(--white-5); }
+.topic-item.active {
+  background: rgba(124,58,237,0.1);
+  border-left-color: var(--grad-1);
+}
+.topic-num {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: var(--white-3);
+  min-width: 20px;
+}
+.topic-name { font-size: 0.8rem; color: var(--white-2); }
+.topic-item.active .topic-name { color: var(--white); }
+.topic-status {
+  margin-left: auto;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--white-4);
+}
+.topic-status.done { background: #22c55e; }
+.topic-status.progress { background: var(--grad-3); }
+.topic-status.active-s { background: var(--grad-1); box-shadow: 0 0 8px var(--glow); }
+
+/* Sidebar bottom */
+.sidebar-bottom {
+  margin-top: auto;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid var(--white-5);
+}
+.api-status {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--white-3);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.api-status:hover { color: var(--white-2); }
+.api-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+.api-dot.connected { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+
+/* Main content */
+#main {
+  margin-left: 260px;
+  flex: 1;
+  padding: 2rem;
+  max-width: calc(100% - 260px);
+}
+
+/* Screens */
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* API Settings Modal */
+#api-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+}
+#api-modal.open { display: flex; }
+.modal-box {
+  background: var(--black-2);
+  border: 1px solid var(--white-4);
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 0 60px rgba(124,58,237,0.2);
+}
+.modal-box h2 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+.modal-box p {
+  font-size: 0.82rem;
+  color: var(--white-3);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+.modal-box input {
+  width: 100%;
+  background: var(--black-3);
+  border: 1px solid var(--white-4);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  color: var(--white);
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  outline: none;
+  transition: border-color 0.2s;
+  margin-bottom: 1rem;
+}
+.modal-box input:focus { border-color: var(--grad-1); }
+.modal-actions { display: flex; gap: 0.75rem; }
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  outline: none;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
+  color: white;
+  box-shadow: 0 0 20px rgba(124,58,237,0.3);
+}
+.btn-primary:hover { box-shadow: 0 0 30px rgba(124,58,237,0.5); transform: translateY(-1px); }
+.btn-ghost {
+  background: var(--white-5);
+  color: var(--white-2);
+  border: 1px solid var(--white-4);
+}
+.btn-ghost:hover { background: var(--white-4); }
+.btn-sm { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
+
+/* Dashboard screen */
+.dash-header { margin-bottom: 2rem; }
+.dash-header h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+.dash-header h2 span {
+  background: linear-gradient(135deg, var(--grad-1), var(--grad-3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.dash-header p { color: var(--white-3); font-size: 0.88rem; margin-top: 0.4rem; }
+
+/* Stats row */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.stat-card {
+  background: var(--black-2);
+  border: 1px solid var(--white-5);
+  border-radius: 12px;
+  padding: 1.25rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--grad-1), transparent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.stat-card:hover { border-color: var(--white-4); }
+.stat-card:hover::before { opacity: 1; }
+.stat-label { font-family: var(--mono); font-size: 0.62rem; color: var(--white-3); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.5rem; }
+.stat-value { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.03em; }
+.stat-value.grad { background: linear-gradient(135deg, var(--grad-1), var(--grad-3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.stat-sub { font-size: 0.72rem; color: var(--white-3); margin-top: 0.25rem; }
+
+/* Prompt grid */
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.section-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--white-3);
+}
+.section-line { flex: 1; height: 1px; background: var(--white-5); }
+
+.prompt-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+.prompt-card {
+  background: var(--black-2);
+  border: 1px solid var(--white-5);
+  border-radius: 12px;
+  padding: 1.25rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.prompt-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(124,58,237,0.08), rgba(6,182,212,0.05));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.prompt-card:hover { border-color: var(--white-4); transform: translateY(-2px); }
+.prompt-card:hover::after { opacity: 1; }
+.prompt-card.featured {
+  border-color: rgba(124,58,237,0.4);
+  background: rgba(124,58,237,0.08);
+}
+.prompt-icon {
+  font-size: 1.2rem;
+  margin-bottom: 0.6rem;
+  display: block;
+}
+.prompt-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+  color: var(--white);
+}
+.prompt-desc {
+  font-size: 0.72rem;
+  color: var(--white-3);
+  line-height: 1.5;
+}
+.prompt-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  background: var(--white-5);
+  color: var(--white-3);
+  margin-top: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.prompt-card.featured .prompt-tag { background: rgba(124,58,237,0.2); color: #a78bfa; }
+
+/* Chat screen */
+.chat-layout {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 4rem);
+}
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--white-5);
+  margin-bottom: 1rem;
+  flex-shrink: 0;
+}
+.chat-back {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  background: var(--white-5);
+  border: 1px solid var(--white-4);
+  color: var(--white-2);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+.chat-back:hover { background: var(--white-4); }
+.chat-title { font-size: 1rem; font-weight: 600; }
+.chat-subtitle { font-size: 0.72rem; color: var(--white-3); font-family: var(--mono); }
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.msg {
+  display: flex;
+  gap: 0.75rem;
+  animation: msgIn 0.3s ease;
+}
+@keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.msg-avatar {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.msg.user .msg-avatar { background: linear-gradient(135deg, var(--grad-1), var(--grad-2)); margin-left: auto; order: 2; }
+.msg.assistant .msg-avatar { background: var(--black-3); border: 1px solid var(--white-4); }
+
+.msg-body { max-width: 75%; }
+.msg.user .msg-body { margin-left: auto; }
+
+.msg-bubble {
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+.msg.user .msg-bubble {
+  background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
+  color: white;
+  border-radius: 12px 12px 2px 12px;
+}
+.msg.assistant .msg-bubble {
+  background: var(--black-2);
+  border: 1px solid var(--white-5);
+  color: var(--white-2);
+  border-radius: 12px 12px 12px 2px;
+}
+
+/* Markdown in messages */
+.msg-bubble h1, .msg-bubble h2, .msg-bubble h3 { margin: 0.75rem 0 0.4rem; font-size: 0.95rem; color: var(--white); }
+.msg-bubble p { margin-bottom: 0.5rem; }
+.msg-bubble p:last-child { margin-bottom: 0; }
+.msg-bubble ul, .msg-bubble ol { padding-left: 1.25rem; margin-bottom: 0.5rem; }
+.msg-bubble li { margin-bottom: 0.2rem; }
+.msg-bubble code {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  background: rgba(255,255,255,0.1);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+.msg-bubble pre {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid var(--white-4);
+  border-radius: 8px;
+  padding: 0.75rem;
+  overflow-x: auto;
+  margin: 0.5rem 0;
+}
+.msg-bubble pre code { background: none; padding: 0; }
+.msg-bubble strong { color: var(--white); font-weight: 600; }
+.msg-bubble table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.8rem; }
+.msg-bubble th { background: rgba(255,255,255,0.08); padding: 0.4rem 0.6rem; text-align: left; border: 1px solid var(--white-4); }
+.msg-bubble td { padding: 0.35rem 0.6rem; border: 1px solid var(--white-5); }
+
+/* Typing indicator */
+.typing-indicator { display: flex; gap: 4px; align-items: center; padding: 0.85rem 1rem; }
+.typing-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--white-3); animation: bounce 1.2s infinite; }
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100% { transform: translateY(0); } 40% { transform: translateY(-6px); } }
+
+/* Chat input */
+.chat-input-area {
+  flex-shrink: 0;
+  padding-top: 1rem;
+  border-top: 1px solid var(--white-5);
+}
+.input-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+.chat-input {
+  flex: 1;
+  background: var(--black-2);
+  border: 1px solid var(--white-4);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  color: var(--white);
+  font-family: var(--font);
+  font-size: 0.85rem;
+  outline: none;
+  resize: none;
+  max-height: 120px;
+  transition: border-color 0.2s;
+  line-height: 1.5;
+}
+.chat-input:focus { border-color: var(--grad-1); }
+.chat-input::placeholder { color: var(--white-3); }
+.send-btn {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--grad-1), var(--grad-2));
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  box-shadow: 0 0 16px rgba(124,58,237,0.3);
+}
+.send-btn:hover { transform: translateY(-1px); box-shadow: 0 0 24px rgba(124,58,237,0.5); }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+/* Quick topic starter buttons */
+.quick-starters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+.quick-btn {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  background: var(--black-3);
+  border: 1px solid var(--white-4);
+  color: var(--white-3);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-transform: lowercase;
+}
+.quick-btn:hover { background: rgba(124,58,237,0.15); border-color: var(--grad-1); color: var(--white-2); }
+
+/* Progress screen */
+.progress-header { margin-bottom: 2rem; }
+.topic-progress-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.tp-item {
+  background: var(--black-2);
+  border: 1px solid var(--white-5);
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.tp-num {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--white-3);
+  min-width: 24px;
+}
+.tp-info { flex: 1; }
+.tp-name { font-size: 0.85rem; font-weight: 500; margin-bottom: 0.25rem; }
+.tp-bar-wrap { height: 3px; background: var(--white-5); border-radius: 2px; }
+.tp-bar { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--grad-1), var(--grad-3)); transition: width 0.5s; }
+.tp-pct { font-family: var(--mono); font-size: 0.65rem; color: var(--white-3); min-width: 36px; text-align: right; }
+.tp-conf {
+  display: flex;
+  gap: 2px;
+}
+.conf-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--white-4); }
+.conf-dot.filled { background: var(--grad-1); }
+
+/* Session log */
+.log-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.log-item {
+  background: var(--black-2);
+  border: 1px solid var(--white-5);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+.log-date { font-family: var(--mono); font-size: 0.65rem; color: var(--white-3); min-width: 80px; }
+.log-topic { color: var(--white-2); flex: 1; }
+.log-type { font-family: var(--mono); font-size: 0.62rem; color: var(--white-3); }
+.log-conf { display: flex; gap: 2px; }
+.log-conf-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--white-4); }
+.log-conf-dot.filled { background: #22c55e; }
+
+/* Toast */
+#toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  background: var(--black-2);
+  border: 1px solid var(--white-4);
+  border-radius: 10px;
+  padding: 0.75rem 1.25rem;
+  font-size: 0.82rem;
+  color: var(--white-2);
+  z-index: 9999;
+  transform: translateY(80px);
+  opacity: 0;
+  transition: all 0.3s;
+}
+#toast.show { transform: translateY(0); opacity: 1; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  #sidebar { width: 200px; }
+  #main { margin-left: 200px; max-width: calc(100% - 200px); }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .prompt-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  #sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+  #sidebar.open { transform: translateX(0); }
+  #main { margin-left: 0; max-width: 100%; padding: 1rem; }
+  .stats-row { grid-template-columns: repeat(2, 1fr); }
+  .prompt-grid { grid-template-columns: 1fr; }
+}
+
+/* File upload */
+.upload-area {
+  border: 1px dashed var(--white-4);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--black-3);
+}
+.upload-area:hover { border-color: var(--grad-1); background: rgba(124,58,237,0.06); }
+.upload-area input { display: none; }
+.upload-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--white-3);
+  cursor: pointer;
+  flex: 1;
+}
+.upload-icon { font-size: 0.9rem; }
+.attached-files {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.attached-file {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(124,58,237,0.12);
+  border: 1px solid rgba(124,58,237,0.3);
+  border-radius: 6px;
+  padding: 0.2rem 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  color: #a78bfa;
+}
+.attached-file button {
+  background: none;
+  border: none;
+  color: #a78bfa;
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 0;
+  line-height: 1;
+}
+.attached-file button:hover { color: #ef4444; }
+
+/* Knowledge base screen */
+.kb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+}
+.kb-card {
+  background: var(--black-2);
+  border: 1px solid var(--white-5);
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+}
+.kb-card-icon { font-size: 1.5rem; margin-bottom: 0.5rem; display: block; }
+.kb-card-name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--white);
+  margin-bottom: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.kb-card-meta { font-family: var(--mono); font-size: 0.62rem; color: var(--white-3); }
+.kb-card-del {
+  position: absolute;
+  top: 0.5rem; right: 0.5rem;
+  background: none;
+  border: none;
+  color: var(--white-4);
+  cursor: pointer;
+  font-size: 0.75rem;
+  transition: color 0.2s;
+}
+.kb-card-del:hover { color: #ef4444; }
+.kb-upload-zone {
+  border: 2px dashed var(--white-4);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1.5rem;
+}
+.kb-upload-zone:hover { border-color: var(--grad-1); background: rgba(124,58,237,0.04); }
+.kb-upload-zone input { display: none; }
+.kb-upload-icon { font-size: 2rem; margin-bottom: 0.5rem; display: block; }
+.kb-upload-title { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.25rem; }
+.kb-upload-sub { font-size: 0.75rem; color: var(--white-3); }
+@media (max-width: 640px) { .kb-grid { grid-template-columns: 1fr 1fr; } }
+
+</style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- API Modal -->
+<div id="api-modal">
+  <div class="modal-box">
+    <h2>Connect Claude API</h2>
+    <p>Enter your Anthropic API key to enable the study agent. Your key is stored locally in your browser only — never sent anywhere except Anthropic's servers.</p>
+    <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off"/>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveApiKey()">Save &amp; Connect</button>
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <h1>DM Study Agent</h1>
+      <p>// CM1020 · UoL BSc CS</p>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Navigation</div>
+      <div class="topic-item" onclick="showScreen('dashboard')">
+        <span class="topic-num">⌂</span>
+        <span class="topic-name">Dashboard</span>
+      </div>
+      <div class="topic-item" onclick="showScreen('chat-dash')">
+        <span class="topic-num">◎</span>
+        <span class="topic-name">Study Session</span>
+      </div>
+      <div class="topic-item" onclick="showScreen('progress')">
+        <span class="topic-num">≡</span>
+        <span class="topic-name">Progress</span>
+      </div>
+      <div class="topic-item" onclick="showScreen('log')">
+        <span class="topic-num">⏱</span>
+        <span class="topic-name">Session Log</span>
+      </div>
+      <div class="topic-item" onclick="showScreen('kb')">
+        <span class="topic-num">🗂</span>
+        <span class="topic-name">Knowledge Base</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">Topics</div>
+      <div id="topic-nav"></div>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="api-status" onclick="openModal()" id="api-status-indicator">
+        <div class="api-dot" id="api-dot"></div>
+        <span id="api-status-text">API not connected</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main id="main">
+
+    <!-- Dashboard -->
+    <div class="screen active" id="screen-dashboard">
+      <div class="dash-header">
+        <h2>Good to see you,<br/><span>Rose 👋</span></h2>
+        <p>CM1020 Discrete Mathematics · October 2026 target · Starting fresh on Topic 1</p>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Current Topic</div>
+          <div class="stat-value grad" style="font-size:1.1rem;margin-top:4px;" id="stat-topic">Sets</div>
+          <div class="stat-sub">Topic 1 of 10</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Sessions</div>
+          <div class="stat-value grad" id="stat-sessions">0</div>
+          <div class="stat-sub">Total logged</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Study Hours</div>
+          <div class="stat-value grad" id="stat-hours">0</div>
+          <div class="stat-sub">This week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Streak</div>
+          <div class="stat-value grad" id="stat-streak">0</div>
+          <div class="stat-sub">Days in a row</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-title">Quick Start</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="prompt-grid">
+        <div class="prompt-card featured" onclick="startPrompt('daily-refresh')">
+          <span class="prompt-icon">🔁</span>
+          <div class="prompt-title">Daily Refresh</div>
+          <div class="prompt-desc">30-minute anti-forgetting workout. Recall, practice, review, remember.</div>
+          <span class="prompt-tag">Daily</span>
+        </div>
+        <div class="prompt-card featured" onclick="startPrompt('start-session')">
+          <span class="prompt-icon">▶</span>
+          <div class="prompt-title">Start Study Session</div>
+          <div class="prompt-desc">Begin a focused session. Tell Claude your time, energy, and goal.</div>
+          <span class="prompt-tag">Core</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('dm-lesson')">
+          <span class="prompt-icon">📖</span>
+          <div class="prompt-title">DM Lesson</div>
+          <div class="prompt-desc">Learn a topic from scratch with examples and practice questions.</div>
+          <span class="prompt-tag">Learn</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('morning-review')">
+          <span class="prompt-icon">🌅</span>
+          <div class="prompt-title">Morning Review</div>
+          <div class="prompt-desc">15-minute review of the last lesson. Flashcards, quiz, worked example.</div>
+          <span class="prompt-tag">Review</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('progressive-drill')">
+          <span class="prompt-icon">📊</span>
+          <div class="prompt-title">Progressive Drill</div>
+          <div class="prompt-desc">10 questions that get harder. Graded strictly, no answers first.</div>
+          <span class="prompt-tag">Practice</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('rescue-mode')">
+          <span class="prompt-icon">🆘</span>
+          <div class="prompt-title">Rescue Mode</div>
+          <div class="prompt-desc">Overwhelmed? Simplest possible version. Confidence first, formal later.</div>
+          <span class="prompt-tag">Help</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('feynman')">
+          <span class="prompt-icon">🧠</span>
+          <div class="prompt-title">Feynman Loop</div>
+          <div class="prompt-desc">Explain it back. Claude finds gaps, corrects, and reteaches until clear.</div>
+          <span class="prompt-tag">Deep</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('cheat-sheet')">
+          <span class="prompt-icon">📋</span>
+          <div class="prompt-title">Cheat Sheet</div>
+          <div class="prompt-desc">One-page review. Definitions, notation, formulas, exam tips.</div>
+          <span class="prompt-tag">Summary</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('lecture-pack')">
+          <span class="prompt-icon">🎬</span>
+          <div class="prompt-title">Lecture Pack</div>
+          <div class="prompt-desc">Paste rough notes from a video. Get clean notes, flashcards, and quiz.</div>
+          <span class="prompt-tag">Notes</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('weekly-review')">
+          <span class="prompt-icon">📅</span>
+          <div class="prompt-title">Weekly Review</div>
+          <div class="prompt-desc">Summarize your week. Progress, weak areas, and next week plan.</div>
+          <span class="prompt-tag">Weekly</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('math-refresher')">
+          <span class="prompt-icon">🔢</span>
+          <div class="prompt-title">Math Refresher</div>
+          <div class="prompt-desc">Pre-college math warm-up. Sequential topics that feed into DM.</div>
+          <span class="prompt-tag">Foundation</span>
+        </div>
+        <div class="prompt-card" onclick="startPrompt('update-tracker')">
+          <span class="prompt-icon">📈</span>
+          <div class="prompt-title">Update Tracker</div>
+          <div class="prompt-desc">Log session to Google Sheets. Date, topic, confidence, next steps.</div>
+          <span class="prompt-tag">Track</span>
+        </div>
+        <div class="prompt-card featured" onclick="startPrompt('blog-post')">
+          <span class="prompt-icon">✍️</span>
+          <div class="prompt-title">Write Blog Post</div>
+          <div class="prompt-desc">Turn this session into a ready-to-publish blog post for Rose Learns to Code.</div>
+          <span class="prompt-tag">Publish</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat screen -->
+    <div class="screen" id="screen-chat-dash">
+      <div class="chat-layout">
+        <div class="chat-header">
+          <button class="chat-back" onclick="showScreen('dashboard')">←</button>
+          <div>
+            <div class="chat-title" id="chat-title">Study Session</div>
+            <div class="chat-subtitle" id="chat-subtitle">CM1020 Discrete Mathematics · Topic 1: Sets</div>
+          </div>
+        </div>
+        <div class="chat-messages" id="chat-messages"></div>
+        <div class="chat-input-area">
+          <div id="attached-files" class="attached-files"></div>
+          <div class="upload-area" onclick="document.getElementById('file-upload').click()">
+            <span class="upload-icon">📎</span>
+            <label class="upload-label">Attach image, PDF, or text file (book page, notes, transcript)</label>
+            <input type="file" id="file-upload" accept="image/*,.pdf,.txt,.md" multiple onchange="handleFileAttach(this)"/>
+          </div>
+          <div class="quick-starters" id="quick-starters"></div>
+          <div class="input-row">
+            <textarea class="chat-input" id="chat-input" placeholder="Type your message..." rows="1"
+              onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+            <button class="send-btn" id="send-btn" onclick="sendMessage()">↑</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Progress screen -->
+    <div class="screen" id="screen-progress">
+      <div class="progress-header">
+        <div class="dash-header">
+          <h2>Topic <span>Progress</span></h2>
+          <p>CM1020 · 10 topics · 19-week prep plan</p>
+        </div>
+      </div>
+      <div class="section-header">
+        <span class="section-title">All Topics</span>
+        <div class="section-line"></div>
+      </div>
+      <div class="topic-progress-list" id="topic-progress-list"></div>
+    </div>
+
+    <!-- Session Log screen -->
+    <div class="screen" id="screen-log">
+      <div class="dash-header">
+        <h2>Session <span>Log</span></h2>
+        <p>Your study history — every session recorded</p>
+      </div>
+      <div class="section-header">
+        <span class="section-title">Recent Sessions</span>
+        <div class="section-line"></div>
+        <button class="btn btn-ghost btn-sm" onclick="clearLog()">Clear log</button>
+      </div>
+      <div class="log-list" id="log-list">
+        <div style="color:var(--white-3);font-size:0.82rem;padding:1rem 0;font-family:var(--mono);">// no sessions logged yet</div>
+      </div>
+    </div>
+
+
+    <!-- Knowledge Base screen -->
+    <div class="screen" id="screen-kb">
+      <div class="dash-header">
+        <h2>Knowledge <span>Base</span></h2>
+        <p>Your personal study database — transcripts, notes, book pages, cheat sheets</p>
+      </div>
+
+      <div class="kb-upload-zone" onclick="document.getElementById('kb-file-upload').click()">
+        <input type="file" id="kb-file-upload" accept="image/*,.pdf,.txt,.md" multiple onchange="handleKbUpload(this)"/>
+        <span class="kb-upload-icon">⊕</span>
+        <div class="kb-upload-title">Add to Knowledge Base</div>
+        <div class="kb-upload-sub">Images (book pages, notes), PDF, TXT, Markdown<br/>Files are stored locally in your browser</div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-title">Stored Files</span>
+        <div class="section-line"></div>
+        <button class="btn btn-ghost btn-sm" onclick="clearKb()">Clear all</button>
+      </div>
+      <div class="kb-grid" id="kb-grid">
+        <div style="color:var(--white-3);font-size:0.82rem;padding:1rem 0;font-family:var(--mono);grid-column:1/-1;">
+          // no files stored yet — add your study materials above
+        </div>
+      </div>
+
+      <div class="section-header" style="margin-top:1rem;">
+        <span class="section-title">How to use</span>
+        <div class="section-line"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;">
+        <div style="background:var(--black-2);border:1px solid var(--white-5);border-radius:10px;padding:1rem;">
+          <div style="font-size:1.2rem;margin-bottom:0.4rem;">📸</div>
+          <div style="font-size:0.82rem;font-weight:600;margin-bottom:0.25rem;">Book Pages</div>
+          <div style="font-size:0.72rem;color:var(--white-3);line-height:1.5;">Photograph pages from Rosen or any textbook. Claude reads the math and explains it.</div>
+        </div>
+        <div style="background:var(--black-2);border:1px solid var(--white-5);border-radius:10px;padding:1rem;">
+          <div style="font-size:1.2rem;margin-bottom:0.4rem;">📝</div>
+          <div style="font-size:0.82rem;font-weight:600;margin-bottom:0.25rem;">Lecture Notes</div>
+          <div style="font-size:0.72rem;color:var(--white-3);line-height:1.5;">Paste or upload rough notes from MIT/Coursera. Get clean study packs back.</div>
+        </div>
+        <div style="background:var(--black-2);border:1px solid var(--white-5);border-radius:10px;padding:1rem;">
+          <div style="font-size:1.2rem;margin-bottom:0.4rem;">🎬</div>
+          <div style="font-size:0.82rem;font-weight:600;margin-bottom:0.25rem;">Transcripts</div>
+          <div style="font-size:0.72rem;color:var(--white-3);line-height:1.5;">Copy YouTube transcripts. Claude creates flashcards, quizzes and summaries.</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const TOPICS = [
+  { id: 1, name: 'Sets', weeks: '1–2', desc: 'Notation, operations, Venn diagrams, De Morgan\'s laws, powersets' },
+  { id: 2, name: 'Functions', weeks: '3–4', desc: 'Domain, codomain, range, inverse, composition, injective/surjective' },
+  { id: 3, name: 'Propositional Logic', weeks: '5–6', desc: 'Truth tables, operators, implications, equivalence, De Morgan\'s laws' },
+  { id: 4, name: 'Predicate Logic', weeks: '7–8', desc: 'Quantifiers, nested quantifiers, inference rules, formal fallacies' },
+  { id: 5, name: 'Boolean Algebra', weeks: '9–10', desc: 'Boolean expressions, logic gates, circuits, K-maps, Huntington\'s axioms' },
+  { id: 6, name: 'Induction & Recursion', weeks: '11–12', desc: 'Direct proof, induction, strong induction, recursion, recurrence' },
+  { id: 7, name: 'Graphs', weeks: '13–14', desc: 'Vertices, edges, paths, cycles, Dijkstra, adjacency matrix' },
+  { id: 8, name: 'Trees', weeks: '15–16', desc: 'Rooted trees, spanning trees, Kruskal, Prim, BST' },
+  { id: 9, name: 'Relations', weeks: '17', desc: 'Cartesian product, equivalence relations, partial orders' },
+  { id: 10, name: 'Combinatorics', weeks: '18', desc: 'Counting rules, pigeonhole, permutations, combinations, binomial' },
+];
+
+const DAILY_ROTATION = {
+  1: 'Sets + notation',
+  2: 'Functions',
+  3: 'Propositional logic + truth tables',
+  4: 'Predicate logic + quantifiers',
+  5: 'Boolean algebra',
+  6: 'Proofs + induction',
+  0: 'Mixed light review'
+};
+
+const PROMPTS = {
+  'start-session': {
+    title: 'Start Study Session',
+    subtitle: 'Set your session parameters',
+    system: buildSystem(),
+    template: `Start Study Session
+
+I have ___ minutes today.
+My energy level is: [low / medium / high]
+I want to do: [Math Refresher / DM Lesson / Practice / Review / Exam Mode / Rescue Mode]
+Current topic: Sets (Topic 1)
+
+Guide me step by step and keep me focused.`,
+    starters: ['I have 30 minutes, medium energy, DM Lesson on Sets', 'I have 60 minutes, high energy, Practice on Sets', 'I have 15 minutes, low energy, Daily Refresh']
+  },
+  'daily-refresh': {
+    title: 'Daily Refresh',
+    subtitle: 'Your 30-min anti-forgetting workout',
+    system: buildSystem(),
+    template: `Daily Refresh
+
+Give me a short DM refresh session.
+
+Include:
+• 3 quick recall questions
+• 3 practice questions  
+• 1 older topic review
+• 1 "Remember this" rule
+• 1 confidence score prompt
+
+Today is ${['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][new Date().getDay()]}. Use the rotation for today: ${DAILY_ROTATION[new Date().getDay()]}.
+
+Use spaced repetition. Do not let me forget older topics.`,
+    starters: ['Start my daily refresh', 'Focus on Sets today', 'I\'m short on time, 15 min version']
+  },
+  'dm-lesson': {
+    title: 'DM Lesson',
+    subtitle: 'Learn a topic from scratch',
+    system: buildSystem(),
+    template: `DM Lesson: Sets
+
+Teach this topic from scratch for UoL CM1020 Discrete Mathematics.
+
+Use this structure:
+1. Plain English explanation
+2. Simple analogy
+3. Formal math version
+4. Easy example
+5. Medium example
+6. One practice question
+7. Wait for my answer
+8. Correct my reasoning
+9. Summarize what I must remember`,
+    starters: ['Teach me Sets from the beginning', 'I need help with set operations', 'Explain De Morgan\'s laws']
+  },
+  'morning-review': {
+    title: 'Morning Review',
+    subtitle: '15-minute next-day recall',
+    system: buildSystem(),
+    template: `Morning Review
+
+Give me a 15-minute review based on the last lesson I studied (Sets, Topic 1).
+
+Include:
+• 5 key ideas
+• 5 flashcards
+• 5 quick quiz questions
+• 1 worked example
+• 1 common mistake to avoid
+• 1 confidence check
+
+Keep it short and active.`,
+    starters: ['Start my morning review', 'Review Sets notation', 'Quick 10 min version']
+  },
+  'progressive-drill': {
+    title: 'Progressive Drill',
+    subtitle: 'Graded quiz, no answers first',
+    system: buildSystem(),
+    template: `Progressive Drill: Sets
+
+Quiz me with 10 questions that get harder gradually.
+
+Rules:
+• Do not show answers first
+• Wait for my answers one by one
+• Grade strictly
+• Explain what I missed
+• Tell me if I am ready to move on`,
+    starters: ['Start the drill on Sets', 'Drill me on set operations', 'Mixed drill: Sets + Functions']
+  },
+  'rescue-mode': {
+    title: 'Rescue Mode',
+    subtitle: 'Overwhelmed? Start here.',
+    system: buildSystem(),
+    template: `Rescue Mode: Sets
+
+I am overwhelmed. Simplify this topic to the easiest possible version.
+
+Use:
+• plain English only
+• tiny steps
+• no long lecture
+• one easy example
+• one tiny practice question
+
+Rebuild my confidence first, then slowly return to formal notation.`,
+    starters: ['I\'m stuck on set notation', 'Sets make no sense to me', 'Start from absolute zero']
+  },
+  'feynman': {
+    title: 'Feynman Loop',
+    subtitle: 'Explain it back, find the gaps',
+    system: buildSystem(),
+    template: `Feynman Loop: Sets
+
+Teach the topic simply first.
+Then ask me to explain it back in my own words.
+
+After I answer:
+• identify gaps in my understanding
+• correct misunderstandings
+• reteach the weak parts
+• ask me to explain again
+
+Repeat until I can explain it clearly without notes.`,
+    starters: ['Start Feynman loop on Sets', 'I want to test my understanding', 'Check if I really understand functions']
+  },
+  'cheat-sheet': {
+    title: 'Cheat Sheet',
+    subtitle: 'One-page topic summary',
+    system: buildSystem(),
+    template: `Cheat Sheet: Sets
+
+Create a one-page review sheet I can review in 5 minutes.
+
+Include:
+• key definitions
+• notation reference
+• formulas and rules
+• mini examples
+• common mistakes
+• exam tips for UoL CM1020`,
+    starters: ['Make me a Sets cheat sheet', 'Cheat sheet for set operations', 'Include De Morgan\'s laws']
+  },
+  'lecture-pack': {
+    title: 'Lecture Pack',
+    subtitle: 'Paste notes → get study pack',
+    system: buildSystem(),
+    template: `Lecture Pack: [lecture title/topic]
+
+Here are my rough notes:
+[paste your notes here]
+
+Create:
+1. Clean study notes
+2. Key definitions
+3. Important notation
+4. Worked examples
+5. Flashcards (10)
+6. 10-question quiz with answer key
+7. Common mistakes
+8. 15-minute morning review sheet
+9. Connection to UoL CM1020 exam`,
+    starters: ['I have notes to upload', 'Process my MIT lecture notes', 'Clean up my rough notes on Sets']
+  },
+  'weekly-review': {
+    title: 'Weekly Review',
+    subtitle: 'Every Saturday — track progress',
+    system: buildSystem(),
+    template: `Weekly Review
+
+Review my week for CM1020 DM.
+
+Ask me for:
+• topics studied this week
+• total study hours
+• daily refresher completion rate
+• strongest topic this week
+• weakest topic
+• questions I got wrong
+• confidence score (1–5)
+
+Then create:
+1. Summary of progress
+2. Weak-area list with action plan
+3. Next week's study plan
+4. Review topics for next week
+5. One checkpoint quiz on weakest area`,
+    starters: ['Start my weekly review', 'Quick summary only', 'I missed some days, be honest with me']
+  },
+  'math-refresher': {
+    title: 'Math Refresher',
+    subtitle: 'Pre-college foundations',
+    system: buildSystem(),
+    template: `Daily Math Refresher
+
+Give me a 30-minute math refresher session.
+Choose the next topic in the sequence unless I specify one.
+
+Format:
+1. 5-minute warm-up recall
+2. Short plain-English lesson
+3. 3 worked examples
+4. 5 practice questions
+5. Answer check with explanations
+6. One tiny homework task
+
+Connect today's refresher to CM1020 Discrete Mathematics where possible.
+
+Sequence: fractions/decimals → variables/expressions → linear equations → inequalities → exponents/roots → logarithms → factorials → summation → sequences → functions → function notation → graph basics → probability language → product/sum rule → mathematical notation → proof language`,
+    starters: ['Start from the beginning', 'Skip to functions', 'I need help with factorials']
+  },
+  'blog-post': {
+    title: 'Write Blog Post',
+    subtitle: 'Session → ready-to-publish post',
+    system: buildSystem(),
+    template: `Write Blog Post
+
+Turn my study session into a blog post for my blog "Rose Learns to Code" (roselearnstocode.com).
+
+My session today:
+- Topic: [what I studied]
+- What I learned: [key concepts]
+- What was hard: [difficulties]
+- What clicked: [aha moments]
+- Practice problems I did: [examples]
+
+Write a blog post that:
+1. Has a compelling title (not generic — make it personal and specific)
+2. Starts with a honest intro — where I am in my studies, how I felt today
+3. Explains the concept in plain English the way I now understand it
+4. Includes the math notation properly formatted
+5. Shares what confused me and how I worked through it
+6. Ends with what's next and a reflection
+7. Tone: personal, honest, learning-in-public, not academic
+
+Format for Blogger:
+- Use HTML headings (h2, h3)
+- Math in KaTeX: display math in $$...$$ and inline in \\(...\\)
+- Code in <pre><code class="language-xxx"> blocks
+- Keep it conversational, not a textbook
+
+Word count: 400–700 words. Quality over length.`,
+    starters: [
+      'I studied Sets today — notation and operations',
+      'I struggled with De Morgan laws but finally got it',
+      'Quick 30-min daily refresh session today'
+    ]
+  },
+  'update-tracker': {
+    title: 'Update Tracker',
+    subtitle: 'Log to Google Sheets',
+    system: buildSystem(),
+    template: `Update Tracker
+
+Help me summarize what to add to my Google Sheets tracker (uol_cm1020_discrete_math_prep_plan).
+
+Ask me for:
+• What topic I studied today
+• How long I studied
+• Confidence score (1–5)
+• What I understood well
+• What needs more review
+• My next action
+
+Then give me a clean summary formatted for my tracker with these columns:
+Date | Topic | Time (min) | Confidence | Understood | Needs Review | Next Action | Status`,
+    starters: ['Log today\'s session', 'I studied Sets for 45 minutes', 'Update after daily refresh']
+  }
+};
+
+function buildSystem() {
+  return `You are Rose's dedicated Discrete Mathematics study coach for UoL CM1020 (October 2026 exam).
+
+STUDENT CONTEXT:
+- Name: Rose
+- Programme: BSc Computer Science (UoL)
+- Module: CM1020 Discrete Mathematics
+- Target: October 2026 exam sitting
+- Starting fresh from Topic 1: Sets
+- Also taking pre-college math refresher alongside DM
+- Works full time from home, studies on M1 MacBook Pro
+- Responds well to: structure, clear steps, honest feedback, not being coddled
+
+MODULE STRUCTURE (10 topics, 2 weeks each):
+1. Sets — notation, operations, Venn diagrams, De Morgan's laws, powersets
+2. Functions — domain, codomain, range, inverse, composition, injective/surjective
+3. Propositional Logic — truth tables, operators, implications, equivalence
+4. Predicate Logic — quantifiers, nested quantifiers, inference, fallacies
+5. Boolean Algebra — Boolean expressions, logic gates, circuits, K-maps
+6. Induction & Recursion — proofs, mathematical induction, recursion, recurrence
+7. Graphs — vertices, edges, paths, Dijkstra, adjacency matrix
+8. Trees — rooted trees, spanning trees, Kruskal, Prim, BST
+9. Relations — cartesian product, equivalence, partial orders
+10. Combinatorics — counting rules, pigeonhole, permutations, combinations
+
+ASSESSMENT:
+- 20% — End of week quizzes (Topics 1–5, weeks 1–12)
+- 30% — Written coursework (due week 12)
+- 50% — Written examination (week 22, 2h15min)
+- Priority: Build strong Topics 1–5 foundation for coursework buffer
+
+MAIN TEXTBOOK: Rosen, Discrete Mathematics and Its Applications (7th or 8th Ed.)
+
+COACHING STYLE:
+- Be a strict but supportive coach
+- Be honest about gaps — do not praise weak answers
+- Use spaced repetition — bring back older topics regularly
+- Keep sessions structured with clear time blocks
+- Always end sessions with a "Remember this" rule
+- Push for active recall, not passive reading
+- If Rose says she's overwhelmed, switch to Rescue Mode automatically
+- Connect math to real CS applications when possible
+- Use LaTeX notation for math: wrap display math in $$ and inline math in \\( \\)
+
+DAILY REFRESH ROTATION:
+Monday: Sets + notation | Tuesday: Functions | Wednesday: Propositional logic
+Thursday: Predicate logic | Friday: Boolean algebra | Saturday: Proofs/induction | Sunday: Mixed
+
+NON-NEGOTIABLES:
+- Daily 30-minute contact with DM — even on busy days
+- No zero days
+- Practice > watching > rereading
+- Retrieval > passive review`;
+}
+
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  apiKey: localStorage.getItem('dm_api_key') || '',
+  currentTopic: parseInt(localStorage.getItem('dm_current_topic')) || 1,
+  sessions: JSON.parse(localStorage.getItem('dm_sessions') || '[]'),
+  topicProgress: JSON.parse(localStorage.getItem('dm_topic_progress') || '{}'),
+  weekHours: parseFloat(localStorage.getItem('dm_week_hours')) || 0,
+  streak: parseInt(localStorage.getItem('dm_streak')) || 0,
+  messages: [],
+  currentPromptKey: null,
+  isLoading: false
+};
+
+// ============================================================
+// INIT
+// ============================================================
+function init() {
+  renderTopicNav();
+  renderTopicProgress();
+  renderSessionLog();
+  updateStats();
+  updateApiStatus();
+  if (!state.apiKey) {
+    setTimeout(openModal, 800);
+  }
+}
+
+function renderTopicNav() {
+  const nav = document.getElementById('topic-nav');
+  nav.innerHTML = TOPICS.map(t => {
+    const p = state.topicProgress[t.id] || 0;
+    let statusClass = '';
+    if (p >= 80) statusClass = 'done';
+    else if (p > 0) statusClass = 'progress';
+    else if (t.id === state.currentTopic) statusClass = 'active-s';
+    return `<div class="topic-item ${t.id === state.currentTopic ? 'active' : ''}" onclick="selectTopic(${t.id})">
+      <span class="topic-num">${String(t.id).padStart(2,'0')}</span>
+      <span class="topic-name">${t.name}</span>
+      <div class="topic-status ${statusClass}"></div>
+    </div>`;
+  }).join('');
+}
+
+function renderTopicProgress() {
+  const list = document.getElementById('topic-progress-list');
+  list.innerHTML = TOPICS.map(t => {
+    const p = state.topicProgress[t.id] || 0;
+    const conf = state.topicProgress[`conf_${t.id}`] || 0;
+    return `<div class="tp-item">
+      <span class="tp-num">${String(t.id).padStart(2,'0')}</span>
+      <div class="tp-info">
+        <div class="tp-name">${t.name}</div>
+        <div class="tp-bar-wrap"><div class="tp-bar" style="width:${p}%"></div></div>
+      </div>
+      <div class="tp-conf">
+        ${[1,2,3,4,5].map(i => `<div class="conf-dot ${i<=conf?'filled':''}"></div>`).join('')}
+      </div>
+      <div class="tp-pct">${p}%</div>
+    </div>`;
+  }).join('');
+}
+
+function renderSessionLog() {
+  const list = document.getElementById('log-list');
+  if (!state.sessions.length) {
+    list.innerHTML = '<div style="color:var(--white-3);font-size:0.82rem;padding:1rem 0;font-family:var(--mono);">// no sessions logged yet</div>';
+    return;
+  }
+  list.innerHTML = [...state.sessions].reverse().slice(0, 30).map(s => `
+    <div class="log-item">
+      <div class="log-date">${s.date}</div>
+      <div class="log-topic">${s.topic}</div>
+      <div class="log-type">${s.type}</div>
+      <div class="log-conf">
+        ${[1,2,3,4,5].map(i => `<div class="log-conf-dot ${i<=s.conf?'filled':''}"></div>`).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function updateStats() {
+  document.getElementById('stat-topic').textContent = TOPICS[state.currentTopic-1]?.name || 'Sets';
+  document.getElementById('stat-sessions').textContent = state.sessions.length;
+  document.getElementById('stat-hours').textContent = state.weekHours.toFixed(1);
+  document.getElementById('stat-streak').textContent = state.streak;
+}
+
+function updateApiStatus() {
+  const dot = document.getElementById('api-dot');
+  const text = document.getElementById('api-status-text');
+  if (state.apiKey) {
+    dot.classList.add('connected');
+    text.textContent = 'API connected';
+  } else {
+    dot.classList.remove('connected');
+    text.textContent = 'API not connected';
+  }
+}
+
+function selectTopic(id) {
+  state.currentTopic = id;
+  localStorage.setItem('dm_current_topic', id);
+  renderTopicNav();
+  updateStats();
+  showToast(`Topic ${id}: ${TOPICS[id-1].name} selected`);
+}
+
+// ============================================================
+// SCREENS
+// ============================================================
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  const target = document.getElementById(`screen-${name}`);
+  if (target) target.classList.add('active');
+
+  document.querySelectorAll('.topic-item').forEach(i => {
+    const isNav = ['dashboard','chat-dash','progress','log'].some(n => i.onclick?.toString().includes(n));
+  });
+}
+
+function startPrompt(key) {
+  const prompt = PROMPTS[key];
+  if (!prompt) return;
+
+  state.currentPromptKey = key;
+  state.messages = [];
+
+  document.getElementById('chat-title').textContent = prompt.title;
+  document.getElementById('chat-subtitle').textContent = prompt.subtitle;
+
+  const container = document.getElementById('chat-messages');
+  container.innerHTML = '';
+
+  // Quick starters
+  const starters = document.getElementById('quick-starters');
+  starters.innerHTML = (prompt.starters || []).map(s =>
+    `<button class="quick-btn" onclick="fillStarter(this.textContent)">${s}</button>`
+  ).join('');
+
+  // Pre-fill input with template
+  const input = document.getElementById('chat-input');
+  input.value = prompt.template;
+  autoResize(input);
+
+  showScreen('chat-dash');
+  input.focus();
+}
+
+function fillStarter(text) {
+  const input = document.getElementById('chat-input');
+  input.value = text;
+  autoResize(input);
+  input.focus();
+}
+
+// ============================================================
+// CHAT
+// ============================================================
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+async function sendMessage() {
+  if (state.isLoading) return;
+
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  if (!state.apiKey) {
+    showToast('Please add your API key first');
+    openModal();
+    return;
+  }
+
+  // Add user message
+  const displayText = attachedFiles.length
+    ? `${text}\n\n📎 ${attachedFiles.length} file(s) attached`
+    : text;
+  addMessage('user', displayText);
+  input.value = '';
+  input.style.height = 'auto';
+  document.getElementById('send-btn').disabled = true;
+  state.isLoading = true;
+
+  // Add to messages array
+  state.messages.push({ role: 'user', content: text });
+
+  // Show typing
+  const typingId = showTyping();
+
+  try {
+    const prompt = PROMPTS[state.currentPromptKey];
+    const systemPrompt = prompt ? prompt.system : buildSystem();
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': state.apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: state.messages
+      })
+    });
+
+    removeTyping(typingId);
+
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'API error');
+    }
+
+    const data = await response.json();
+    const reply = data.content[0].text;
+
+    state.messages.push({ role: 'assistant', content: reply });
+    addMessage('assistant', reply);
+
+    // Auto-log session
+    logSession(state.currentPromptKey, text);
+
+  } catch (err) {
+    removeTyping(typingId);
+    addMessage('assistant', `⚠️ Error: ${err.message}. Check your API key in settings.`);
+  }
+
+  document.getElementById('send-btn').disabled = false;
+  state.isLoading = false;
+}
+
+function addMessage(role, content) {
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+
+  const avatar = role === 'user' ? 'R' : '✦';
+  div.innerHTML = `
+    <div class="msg-avatar">${avatar}</div>
+    <div class="msg-body">
+      <div class="msg-bubble">${formatMessage(content)}</div>
+    </div>`;
+
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+}
+
+function formatMessage(text) {
+  // Basic markdown to HTML
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/^### (.+)$/gm,'<h3>$1</h3>')
+    .replace(/^## (.+)$/gm,'<h2>$1</h2>')
+    .replace(/^# (.+)$/gm,'<h1>$1</h1>')
+    .replace(/^\- (.+)$/gm,'<li>$1</li>')
+    .replace(/^(\d+)\. (.+)$/gm,'<li>$2</li>')
+    .replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')
+    .replace(/\$\$(.+?)\$\$/gs,'<code class="math">$1</code>')
+    .replace(/\n\n/g,'</p><p>')
+    .replace(/\n/g,'<br/>')
+    .replace(/^(.)/,'<p>$1').replace(/(.)$/,'$1</p>');
+}
+
+let typingCounter = 0;
+function showTyping() {
+  const id = ++typingCounter;
+  const container = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg assistant';
+  div.id = `typing-${id}`;
+  div.innerHTML = `
+    <div class="msg-avatar">✦</div>
+    <div class="msg-body">
+      <div class="msg-bubble">
+        <div class="typing-indicator">
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+          <div class="typing-dot"></div>
+        </div>
+      </div>
+    </div>`;
+  container.appendChild(div);
+  container.scrollTop = container.scrollHeight;
+  return id;
+}
+
+function removeTyping(id) {
+  const el = document.getElementById(`typing-${id}`);
+  if (el) el.remove();
+}
+
+// ============================================================
+// SESSION LOGGING
+// ============================================================
+function logSession(promptKey, text) {
+  const topic = TOPICS[state.currentTopic-1]?.name || 'Sets';
+  const type = PROMPTS[promptKey]?.title || 'Session';
+  const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const session = {
+    date: today,
+    topic,
+    type,
+    conf: 0,
+    text: text.substring(0, 60)
+  };
+
+  state.sessions.push(session);
+  localStorage.setItem('dm_sessions', JSON.stringify(state.sessions));
+  updateStats();
+  renderSessionLog();
+}
+
+function clearLog() {
+  if (confirm('Clear all session logs?')) {
+    state.sessions = [];
+    localStorage.setItem('dm_sessions', '[]');
+    renderSessionLog();
+    updateStats();
+    showToast('Session log cleared');
+  }
+}
+
+// ============================================================
+// API KEY
+// ============================================================
+function openModal() { document.getElementById('api-modal').classList.add('open'); }
+function closeModal() { document.getElementById('api-modal').classList.remove('open'); }
+
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key.startsWith('sk-')) {
+    showToast('Invalid key — must start with sk-');
+    return;
+  }
+  state.apiKey = key;
+  localStorage.setItem('dm_api_key', key);
+  updateApiStatus();
+  closeModal();
+  showToast('API key saved ✓');
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ============================================================
+// FILE ATTACHMENTS (chat)
+// ============================================================
+let attachedFiles = []; // [{name, type, data, mediaType}]
+
+async function handleFileAttach(input) {
+  const files = Array.from(input.files);
+  for (const file of files) {
+    const fileData = await readFile(file);
+    attachedFiles.push(fileData);
+  }
+  renderAttachedFiles();
+  input.value = '';
+}
+
+function renderAttachedFiles() {
+  const container = document.getElementById('attached-files');
+  if (!attachedFiles.length) { container.innerHTML = ''; return; }
+  container.innerHTML = attachedFiles.map((f, i) => `
+    <div class="attached-file">
+      <span>${getFileIcon(f.type)}</span>
+      <span>${f.name.substring(0,25)}${f.name.length>25?'...':''}</span>
+      <button onclick="removeAttached(${i})">✕</button>
+    </div>`).join('');
+}
+
+function removeAttached(i) {
+  attachedFiles.splice(i, 1);
+  renderAttachedFiles();
+}
+
+function getFileIcon(type) {
+  if (type.startsWith('image/')) return '🖼';
+  if (type === 'application/pdf') return '📄';
+  return '📝';
+}
+
+async function readFile(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    if (file.type.startsWith('image/')) {
+      reader.onload = e => resolve({
+        name: file.name,
+        type: file.type,
+        mediaType: file.type,
+        data: e.target.result.split(',')[1],
+        isImage: true
+      });
+      reader.readAsDataURL(file);
+    } else {
+      reader.onload = e => resolve({
+        name: file.name,
+        type: file.type,
+        mediaType: file.type,
+        data: e.target.result,
+        isImage: false
+      });
+      reader.readAsText(file);
+    }
+  });
+}
+
+function buildMessageContent(text) {
+  // If no attachments, return plain text
+  if (!attachedFiles.length) return text;
+
+  // Build multimodal content array
+  const content = [];
+
+  // Add images
+  attachedFiles.filter(f => f.isImage).forEach(f => {
+    content.push({
+      type: 'image',
+      source: { type: 'base64', media_type: f.mediaType, data: f.data }
+    });
+  });
+
+  // Add text files as text blocks
+  const textFiles = attachedFiles.filter(f => !f.isImage);
+  let fullText = text;
+  if (textFiles.length) {
+    const fileTexts = textFiles.map(f =>
+      `[File: ${f.name}]\n${f.data}`
+    ).join('\n\n---\n\n');
+    fullText = `${fileTexts}\n\n---\n\nUser message: ${text}`;
+  }
+
+  content.push({ type: 'text', text: fullText });
+  return content;
+}
+
+// ============================================================
+// KNOWLEDGE BASE (local storage)
+// ============================================================
+let kbFiles = JSON.parse(localStorage.getItem('dm_kb') || '[]');
+
+async function handleKbUpload(input) {
+  const files = Array.from(input.files);
+  for (const file of files) {
+    const fileData = await readFile(file);
+    fileData.id = Date.now() + Math.random();
+    fileData.addedDate = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    fileData.topic = state.currentTopic;
+    kbFiles.push(fileData);
+  }
+  // Don't store large base64 images in localStorage — store metadata only
+  const meta = kbFiles.map(f => ({
+    id: f.id, name: f.name, type: f.type,
+    addedDate: f.addedDate, topic: f.topic,
+    isImage: f.isImage,
+    preview: f.isImage ? '' : f.data.substring(0, 200)
+  }));
+  try { localStorage.setItem('dm_kb_meta', JSON.stringify(meta)); } catch(e) {}
+  renderKbGrid();
+  showToast(`${files.length} file(s) added to Knowledge Base`);
+  input.value = '';
+}
+
+function renderKbGrid() {
+  const grid = document.getElementById('kb-grid');
+  if (!kbFiles.length) {
+    grid.innerHTML = '<div style="color:var(--white-3);font-size:0.82rem;padding:1rem 0;font-family:var(--mono);grid-column:1/-1;">// no files stored yet</div>';
+    return;
+  }
+  grid.innerHTML = kbFiles.map((f, i) => `
+    <div class="kb-card">
+      <button class="kb-card-del" onclick="deleteKbFile(${i})">✕</button>
+      <span class="kb-card-icon">${getFileIcon(f.type)}</span>
+      <div class="kb-card-name">${f.name}</div>
+      <div class="kb-card-meta">Topic ${f.topic} · ${f.addedDate}</div>
+      ${!f.isImage ? `<div style="font-family:var(--mono);font-size:0.6rem;color:var(--white-3);margin-top:0.4rem;overflow:hidden;max-height:40px;">${f.data.substring(0,100)}...</div>` : ''}
+    </div>`).join('');
+}
+
+function deleteKbFile(i) {
+  kbFiles.splice(i, 1);
+  renderKbGrid();
+  showToast('File removed');
+}
+
+function clearKb() {
+  if (confirm('Clear all Knowledge Base files?')) {
+    kbFiles = [];
+    renderKbGrid();
+    localStorage.removeItem('dm_kb_meta');
+    showToast('Knowledge Base cleared');
+  }
+}
+
+// ============================================================
+// START
+// ============================================================
+init();
+renderKbGrid();
+</script>
+</body>
+</html>
