@@ -638,6 +638,44 @@ body::before {
   .prompt-grid { grid-template-columns: 1fr; }
 }
 
+/* Google Drive */
+.gdrive-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--white-4);
+  background: var(--black-3);
+  color: var(--white-2);
+}
+.gdrive-btn:hover { border-color: #4285f4; color: #4285f4; }
+.gdrive-btn.connected { border-color: #22c55e; color: #22c55e; }
+.gdrive-status {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--white-3);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+.gdrive-dot { width: 6px; height: 6px; border-radius: 50%; background: #ef4444; flex-shrink: 0; }
+.gdrive-dot.ok { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.gdrive-folder-link {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: #4285f4;
+  text-decoration: none;
+  margin-left: 0.5rem;
+}
+.gdrive-folder-link:hover { text-decoration: underline; }
+
 /* File upload */
 .upload-area {
   border: 1px dashed var(--white-4);
@@ -934,10 +972,13 @@ body::before {
       <div class="chat-layout">
         <div class="chat-header">
           <button class="chat-back" onclick="showScreen('dashboard')">←</button>
-          <div>
+          <div style="flex:1;">
             <div class="chat-title" id="chat-title">Study Session</div>
             <div class="chat-subtitle" id="chat-subtitle">CM1020 Discrete Mathematics · Topic 1: Sets</div>
           </div>
+          <button class="btn btn-ghost btn-sm" onclick="openNotionModal()" title="Log this session to Notion">
+            📓 Log to Notion
+          </button>
         </div>
         <div class="chat-messages" id="chat-messages"></div>
         <div class="chat-input-area">
@@ -1041,6 +1082,62 @@ body::before {
 </div>
 
 <div id="toast"></div>
+
+<!-- Notion Log Modal -->
+<div id="notion-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#111;border:1px solid rgba(255,255,255,0.15);border-radius:16px;padding:2rem;width:100%;max-width:480px;box-shadow:0 0 60px rgba(124,58,237,0.2);">
+    <h2 style="font-size:1rem;font-weight:600;margin-bottom:0.5rem;">Log to Notion</h2>
+    <p style="font-size:0.8rem;color:rgba(255,255,255,0.5);margin-bottom:1.5rem;">Save this session to your CM1020 Session Log database.</p>
+    <div style="display:grid;gap:0.75rem;">
+      <div>
+        <label style="font-family:var(--mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:0.3rem;">Topic</label>
+        <select id="notion-topic" style="width:100%;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem 0.75rem;color:white;font-family:var(--font);font-size:0.82rem;outline:none;">
+          <option>Sets</option><option>Functions</option><option>Propositional Logic</option>
+          <option>Predicate Logic</option><option>Boolean Algebra</option><option>Induction &amp; Recursion</option>
+          <option>Graphs</option><option>Trees</option><option>Relations</option><option>Combinatorics</option>
+        </select>
+      </div>
+      <div>
+        <label style="font-family:var(--mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:0.3rem;">Session Type</label>
+        <select id="notion-prompt-type" style="width:100%;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem 0.75rem;color:white;font-family:var(--font);font-size:0.82rem;outline:none;">
+          <option>Daily Refresh</option><option>DM Lesson</option><option>Morning Review</option>
+          <option>Progressive Drill</option><option>Rescue Mode</option><option>Feynman Loop</option>
+          <option>Cheat Sheet</option><option>Lecture Pack</option><option>Weekly Review</option>
+          <option>Math Refresher</option><option>Blog Post</option><option>Update Tracker</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+        <div>
+          <label style="font-family:var(--mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:0.3rem;">Duration (min)</label>
+          <input type="number" id="notion-duration" placeholder="30" style="width:100%;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem 0.75rem;color:white;font-family:var(--font);font-size:0.82rem;outline:none;"/>
+        </div>
+        <div>
+          <label style="font-family:var(--mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:0.3rem;">Confidence</label>
+          <select id="notion-confidence" style="width:100%;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem 0.75rem;color:white;font-family:var(--font);font-size:0.82rem;outline:none;">
+            <option>1 - Lost</option><option>2 - Shaky</option><option selected>3 - Getting it</option>
+            <option>4 - Solid</option><option>5 - Nailed it</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <label style="font-family:var(--mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:0.3rem;">What I Understood</label>
+        <textarea id="notion-understood" rows="2" placeholder="Key concepts that clicked..." style="width:100%;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem 0.75rem;color:white;font-family:var(--font);font-size:0.82rem;outline:none;resize:none;"></textarea>
+      </div>
+      <div>
+        <label style="font-family:var(--mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:0.3rem;">Needs Review</label>
+        <textarea id="notion-needs-review" rows="2" placeholder="What needs more work..." style="width:100%;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem 0.75rem;color:white;font-family:var(--font);font-size:0.82rem;outline:none;resize:none;"></textarea>
+      </div>
+      <div>
+        <label style="font-family:var(--mono);font-size:0.65rem;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:0.3rem;">Next Action</label>
+        <input type="text" id="notion-next-action" placeholder="What to do next session..." style="width:100%;background:#1a1a1a;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.6rem 0.75rem;color:white;font-family:var(--font);font-size:0.82rem;outline:none;"/>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.75rem;margin-top:1.5rem;">
+      <button onclick="submitNotionLog()" style="flex:1;background:linear-gradient(135deg,#7c3aed,#2563eb);border:none;border-radius:8px;padding:0.7rem;color:white;font-family:var(--font);font-size:0.85rem;font-weight:600;cursor:pointer;">Save to Notion</button>
+      <button onclick="closeNotionModal()" style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0.7rem 1.2rem;color:rgba(255,255,255,0.7);font-family:var(--font);font-size:0.85rem;cursor:pointer;">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <script>
 // ============================================================
@@ -1913,10 +2010,448 @@ function clearKb() {
 }
 
 // ============================================================
+// NOTION INTEGRATION
+// ============================================================
+const NOTION_PROXY = 'https://notion-proxy.rosewebaccounts.workers.dev';
+const NOTION_SESSION_LOG_DB = 'a8e3f7a6-9b46-4a74-8689-796964b16c28';
+const NOTION_TOPIC_PROGRESS_DB = 'd81ba869-0b98-40bc-929a-0a64193f20f5';
+const NOTION_RULES_DB = '21b9a067-fbaf-4267-b31b-bf1e02ce4f97';
+
+async function notionRequest(endpoint, method, body) {
+  try {
+    const res = await fetch(`${NOTION_PROXY}${endpoint}`, {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body ? JSON.stringify(body) : undefined
+    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`Notion error ${res.status}: ${err}`);
+    }
+    return await res.json();
+  } catch (err) {
+    console.error('Notion request failed:', err);
+    throw err;
+  }
+}
+
+async function logSessionToNotion(sessionData) {
+  const { topic, promptType, duration, confidence, understood, needsReview, nextAction } = sessionData;
+  const today = new Date().toISOString().split('T')[0];
+  const sessionTitle = `${topic} — ${promptType} (${today})`;
+
+  try {
+    await notionRequest('/v1/pages', 'POST', {
+      parent: { database_id: NOTION_SESSION_LOG_DB },
+      properties: {
+        'Session': { title: [{ text: { content: sessionTitle } }] },
+        'date:Date:start': today,
+        'Topic': { select: { name: topic } },
+        'Prompt Type': { select: { name: promptType } },
+        'Duration (min)': duration ? { number: duration } : undefined,
+        'Confidence': confidence ? { select: { name: confidence } } : undefined,
+        'What I Understood': understood ? { rich_text: [{ text: { content: understood } }] } : undefined,
+        'What Needs Review': needsReview ? { rich_text: [{ text: { content: needsReview } }] } : undefined,
+        'Next Action': nextAction ? { rich_text: [{ text: { content: nextAction } }] } : undefined,
+        'Status': { select: { name: 'Done' } }
+      }
+    });
+    showToast('✓ Session logged to Notion');
+    return true;
+  } catch (err) {
+    showToast('Notion log failed — check console');
+    return false;
+  }
+}
+
+async function addRememberRule(rule, topic, explanation, example, commonMistake) {
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    await notionRequest('/v1/pages', 'POST', {
+      parent: { database_id: NOTION_RULES_DB },
+      properties: {
+        'Rule': { title: [{ text: { content: rule } }] },
+        'Topic': { select: { name: topic || 'General' } },
+        'Explanation': explanation ? { rich_text: [{ text: { content: explanation } }] } : undefined,
+        'Example': example ? { rich_text: [{ text: { content: example } }] } : undefined,
+        'Common Mistake': commonMistake ? { rich_text: [{ text: { content: commonMistake } }] } : undefined,
+        'date:Date Added:start': today,
+        'Review Count': { number: 0 }
+      }
+    });
+    showToast('✓ Rule saved to Notion');
+    return true;
+  } catch (err) {
+    showToast('Notion rule save failed');
+    return false;
+  }
+}
+
+async function updateTopicProgress(topicName, confidence, status, weakAreas) {
+  try {
+    // Search for existing topic entry
+    const search = await notionRequest(
+      `/v1/databases/${NOTION_TOPIC_PROGRESS_DB}/query`,
+      'POST',
+      { filter: { property: 'Topic', title: { equals: topicName } } }
+    );
+
+    const today = new Date().toISOString().split('T')[0];
+    const props = {
+      'Confidence': confidence ? { select: { name: confidence } } : undefined,
+      'Status': status ? { select: { name: status } } : undefined,
+      'Weak Areas': weakAreas ? { rich_text: [{ text: { content: weakAreas } }] } : undefined,
+      'date:Last Studied:start': today
+    };
+
+    if (search.results && search.results.length > 0) {
+      // Update existing
+      await notionRequest(`/v1/pages/${search.results[0].id}`, 'PATCH', { properties: props });
+    }
+    showToast(`✓ Progress updated for ${topicName}`);
+    return true;
+  } catch (err) {
+    showToast('Progress update failed');
+    return false;
+  }
+}
+
+// Show Notion log modal after Update Tracker sessions
+function showNotionLogModal(conversationSummary) {
+  const topic = TOPICS[state.currentTopic - 1]?.name || 'Sets';
+  const modal = document.getElementById('notion-modal');
+  if (modal) {
+    document.getElementById('notion-topic').value = topic;
+    document.getElementById('notion-prompt-type').value = 'Daily Refresh';
+    modal.classList.add('open');
+  }
+}
+
+// ============================================================
+// GOOGLE DRIVE INTEGRATION
+
+// ============================================================
+// GOOGLE DRIVE INTEGRATION
+// ============================================================
+const GDRIVE_CLIENT_ID = '631292877360-dp738j17ghs4vfp6pgbo1k8mc3jkg66s.apps.googleusercontent.com';
+const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const GDRIVE_FOLDER_NAME = 'DM Study Agent';
+
+let gdriveToken = localStorage.getItem('gdrive_token') || null;
+let gdriveFolderId = localStorage.getItem('gdrive_folder_id') || null;
+let gdriveFolderUrl = localStorage.getItem('gdrive_folder_url') || null;
+
+function toggleGDrive() {
+  if (gdriveToken) {
+    disconnectGDrive();
+  } else {
+    connectGDrive();
+  }
+}
+
+function connectGDrive() {
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GDRIVE_CLIENT_ID,
+    scope: GDRIVE_SCOPES,
+    callback: async (response) => {
+      if (response.error) {
+        showToast('Google Drive connection failed');
+        return;
+      }
+      gdriveToken = response.access_token;
+      localStorage.setItem('gdrive_token', gdriveToken);
+      showToast('Google Drive connected ✓');
+      await ensureStudyFolder();
+      updateGDriveUI();
+    }
+  });
+  client.requestAccessToken();
+}
+
+function disconnectGDrive() {
+  gdriveToken = null;
+  gdriveFolderId = null;
+  gdriveFolderUrl = null;
+  localStorage.removeItem('gdrive_token');
+  localStorage.removeItem('gdrive_folder_id');
+  localStorage.removeItem('gdrive_folder_url');
+  updateGDriveUI();
+  showToast('Google Drive disconnected');
+}
+
+// Cache for subfolder IDs: { 'Topic 01 - Sets': 'folderId', ... }
+let gdriveSubfolders = JSON.parse(localStorage.getItem('gdrive_subfolders') || '{}');
+
+const GDRIVE_SUBFOLDERS = [
+  'Topic 01 - Sets',
+  'Topic 02 - Functions',
+  'Topic 03 - Propositional Logic',
+  'Topic 04 - Predicate Logic',
+  'Topic 05 - Boolean Algebra',
+  'Topic 06 - Induction & Recursion',
+  'Topic 07 - Graphs',
+  'Topic 08 - Trees',
+  'Topic 09 - Relations',
+  'Topic 10 - Combinatorics',
+  'Session Logs',
+  'Cheat Sheets',
+  'Transcripts'
+];
+
+async function createDriveFolder(name, parentId) {
+  const res = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,webViewLink', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${gdriveToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      name,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: parentId ? [parentId] : []
+    })
+  });
+  return await res.json();
+}
+
+async function getOrCreateFolder(name, parentId) {
+  // Check cache first
+  const cacheKey = parentId + '/' + name;
+  if (gdriveSubfolders[cacheKey]) return gdriveSubfolders[cacheKey];
+
+  // Search in Drive
+  const q = `name='${name}' and mimeType='application/vnd.google-apps.folder' and '${parentId}' in parents and trashed=false`;
+  const res = await fetch(
+    `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id)`,
+    { headers: { Authorization: `Bearer ${gdriveToken}` } }
+  );
+  const data = await res.json();
+
+  let folderId;
+  if (data.files && data.files.length > 0) {
+    folderId = data.files[0].id;
+  } else {
+    const created = await createDriveFolder(name, parentId);
+    folderId = created.id;
+  }
+
+  gdriveSubfolders[cacheKey] = folderId;
+  localStorage.setItem('gdrive_subfolders', JSON.stringify(gdriveSubfolders));
+  return folderId;
+}
+
+async function ensureStudyFolder() {
+  try {
+    // 1. Get or create root DM Study Agent folder
+    const searchRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${GDRIVE_FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false`)}&fields=files(id,webViewLink)`,
+      { headers: { Authorization: `Bearer ${gdriveToken}` } }
+    );
+    const searchData = await searchRes.json();
+
+    if (searchData.files && searchData.files.length > 0) {
+      gdriveFolderId = searchData.files[0].id;
+      gdriveFolderUrl = searchData.files[0].webViewLink;
+    } else {
+      const folder = await createDriveFolder(GDRIVE_FOLDER_NAME, null);
+      gdriveFolderId = folder.id;
+      gdriveFolderUrl = folder.webViewLink;
+    }
+
+    localStorage.setItem('gdrive_folder_id', gdriveFolderId);
+    localStorage.setItem('gdrive_folder_url', gdriveFolderUrl);
+
+    // 2. Create all subfolders in parallel
+    showToast('📁 Setting up folder structure...');
+    await Promise.all(
+      GDRIVE_SUBFOLDERS.map(name => getOrCreateFolder(name, gdriveFolderId))
+    );
+
+    showToast('✓ DM Study Agent folder structure ready in Drive');
+  } catch (err) {
+    console.error('Drive folder error:', err);
+    showToast('Drive setup error — check console');
+  }
+}
+
+async function getTopicFolderForUpload(fileData) {
+  if (!gdriveFolderId) return gdriveFolderId;
+
+  // Determine which subfolder based on file type or current topic
+  const topicIndex = state.currentTopic;
+  const topic = TOPICS[topicIndex - 1];
+  const subfolderName = `Topic ${String(topicIndex).padStart(2,'0')} - ${topic.name}`;
+
+  // Check if it looks like a transcript or cheat sheet by name
+  const nameLower = fileData.name.toLowerCase();
+  if (nameLower.includes('transcript') || nameLower.includes('lecture')) {
+    return await getOrCreateFolder('Transcripts', gdriveFolderId);
+  }
+  if (nameLower.includes('cheat') || nameLower.includes('sheet') || nameLower.includes('summary')) {
+    return await getOrCreateFolder('Cheat Sheets', gdriveFolderId);
+  }
+
+  // Default: current topic folder
+  return await getOrCreateFolder(subfolderName, gdriveFolderId);
+}
+
+async function uploadToGDrive(fileData) {
+  if (!gdriveToken || !gdriveFolderId) return null;
+
+  try {
+    const targetFolderId = await getTopicFolderForUpload(fileData);
+    const metadata = {
+      name: fileData.name,
+      parents: [targetFolderId || gdriveFolderId]
+    };
+
+    let body, contentType;
+
+    if (fileData.isImage) {
+      // base64 image
+      const binary = atob(fileData.data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      body = new Blob([bytes], { type: fileData.mediaType });
+      contentType = fileData.mediaType;
+    } else {
+      body = new Blob([fileData.data], { type: 'text/plain' });
+      contentType = 'text/plain';
+    }
+
+    // Multipart upload
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', body);
+
+    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink,name', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${gdriveToken}` },
+      body: form
+    });
+
+    const uploaded = await res.json();
+    showToast(`✓ ${fileData.name} saved to Drive`);
+    return uploaded;
+  } catch (err) {
+    console.error('Upload error:', err);
+    showToast('Drive upload failed — file saved locally only');
+    return null;
+  }
+}
+
+function updateGDriveUI() {
+  const btn = document.getElementById('gdrive-btn');
+  const dot = document.getElementById('gdrive-dot');
+  const text = document.getElementById('gdrive-status-text');
+  const link = document.getElementById('gdrive-folder-link');
+
+  if (!btn) return;
+
+  if (gdriveToken) {
+    btn.textContent = '✓ Connected — Disconnect';
+    btn.classList.add('connected');
+    dot.classList.add('ok');
+    text.textContent = 'Connected — files sync to Drive';
+    if (gdriveFolderUrl) {
+      link.href = gdriveFolderUrl;
+      link.style.display = 'inline';
+    }
+  } else {
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 87.3 78" xmlns="http://www.w3.org/2000/svg"><path d="m6.6 66.85 3.85 6.65c.8 1.4 1.95 2.5 3.3 3.3l13.75-23.8h-27.5c0 1.55.4 3.1 1.2 4.5z" fill="#0066da"/><path d="m43.65 25-13.75-23.8c-1.35.8-2.5 1.9-3.3 3.3l-25.4 44a9.06 9.06 0 0 0 -1.2 4.5h27.5z" fill="#00ac47"/><path d="m73.55 76.8c1.35-.8 2.5-1.9 3.3-3.3l1.6-2.75 7.65-13.25c.8-1.4 1.2-2.95 1.2-4.5h-27.502l5.852 11.5z" fill="#ea4335"/><path d="m43.65 25 13.75-23.8c-1.35-.8-2.9-1.2-4.5-1.2h-18.5c-1.6 0-3.15.45-4.5 1.2z" fill="#00832d"/><path d="m59.8 53h-32.3l-13.75 23.8c1.35.8 2.9 1.2 4.5 1.2h50.8c1.6 0 3.15-.45 4.5-1.2z" fill="#2684fc"/><path d="m73.4 26.5-12.7-22c-.8-1.4-1.95-2.5-3.3-3.3l-13.75 23.8 16.15 28h27.45c0-1.55-.4-3.1-1.2-4.5z" fill="#ffba00"/></svg> Connect Drive`;
+    btn.classList.remove('connected');
+    dot.classList.remove('ok');
+    text.textContent = 'Not connected';
+    link.style.display = 'none';
+  }
+}
+
+// Override handleKbUpload to also upload to Drive
+const _origHandleKbUpload = handleKbUpload;
+async function handleKbUpload(input) {
+  const files = Array.from(input.files);
+  for (const file of files) {
+    const fileData = await readFile(file);
+    fileData.id = Date.now() + Math.random();
+    fileData.addedDate = new Date().toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    fileData.topic = state.currentTopic;
+    kbFiles.push(fileData);
+
+    // Upload to Drive if connected
+    if (gdriveToken) {
+      uploadToGDrive(fileData);
+    }
+  }
+  const meta = kbFiles.map(f => ({
+    id: f.id, name: f.name, type: f.type,
+    addedDate: f.addedDate, topic: f.topic,
+    isImage: f.isImage,
+    preview: f.isImage ? '' : f.data.substring(0, 200)
+  }));
+  try { localStorage.setItem('dm_kb_meta', JSON.stringify(meta)); } catch(e) {}
+  renderKbGrid();
+  showToast(`${files.length} file(s) added${gdriveToken ? ' + synced to Drive' : ' locally'}`);
+  input.value = '';
+}
+
+// ============================================================
+// NOTION MODAL
+// ============================================================
+function openNotionModal() {
+  const modal = document.getElementById('notion-modal');
+  modal.style.display = 'flex';
+  // Pre-fill topic from current selection
+  const topicSelect = document.getElementById('notion-topic');
+  if (topicSelect) topicSelect.value = TOPICS[state.currentTopic - 1]?.name || 'Sets';
+}
+
+function closeNotionModal() {
+  document.getElementById('notion-modal').style.display = 'none';
+}
+
+async function submitNotionLog() {
+  const sessionData = {
+    topic: document.getElementById('notion-topic').value,
+    promptType: document.getElementById('notion-prompt-type').value,
+    duration: parseInt(document.getElementById('notion-duration').value) || null,
+    confidence: document.getElementById('notion-confidence').value,
+    understood: document.getElementById('notion-understood').value,
+    needsReview: document.getElementById('notion-needs-review').value,
+    nextAction: document.getElementById('notion-next-action').value,
+  };
+
+  const btn = document.querySelector('#notion-modal button');
+  btn.textContent = 'Saving...';
+  btn.disabled = true;
+
+  const ok = await logSessionToNotion(sessionData);
+
+  if (ok) {
+    // Also update topic progress
+    await updateTopicProgress(
+      sessionData.topic,
+      sessionData.confidence,
+      'In Progress',
+      sessionData.needsReview
+    );
+    closeNotionModal();
+    // Clear form
+    document.getElementById('notion-understood').value = '';
+    document.getElementById('notion-needs-review').value = '';
+    document.getElementById('notion-next-action').value = '';
+    document.getElementById('notion-duration').value = '';
+  }
+
+  btn.textContent = 'Save to Notion';
+  btn.disabled = false;
+}
+
+// ============================================================
 // START
 // ============================================================
 init();
 renderKbGrid();
+updateGDriveUI();
 </script>
 </body>
 </html>
