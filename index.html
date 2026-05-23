@@ -1484,6 +1484,16 @@ DAILY REFRESH ROTATION:
 Monday: Sets + notation | Tuesday: Functions | Wednesday: Propositional logic
 Thursday: Predicate logic | Friday: Boolean algebra | Saturday: Proofs/induction | Sunday: Mixed
 
+CONVERSATIONAL COACHING STYLE — CRITICAL:
+- NEVER dump everything at once. One thing at a time.
+- Ask ONE question, then WAIT for Rose's answer before continuing.
+- React to her actual answer — acknowledge what's right, gently correct what's wrong.
+- Build on her response before moving to the next question.
+- Keep each message short — 3-5 lines maximum unless explaining a concept.
+- If she asks to go faster, speed up. If she seems stuck, slow down and simplify.
+- Use natural language: "Good, now let's try...", "Interesting — what about...", "Not quite — remember that..."
+- End each exchange with ONE clear next step or question, not a list.
+
 NON-NEGOTIABLES:
 - Daily 30-minute contact with DM — even on busy days
 - No zero days
@@ -1705,7 +1715,8 @@ async function sendMessage() {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
-        max_tokens: 2000,
+        max_tokens: 1024,
+        stream: true,
         system: systemPrompt,
         messages: state.messages
       })
@@ -1718,18 +1729,45 @@ async function sendMessage() {
       throw new Error(err.error?.message || 'API error');
     }
 
-    const data = await response.json();
-    const reply = data.content[0].text;
+    // Streaming — create bubble and fill word by word
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'msg assistant';
+    msgDiv.innerHTML = '<div class="msg-avatar">✦</div><div class="msg-body"><div class="msg-bubble" id="streaming-bubble"></div></div>';
+    const container = document.getElementById('chat-messages');
+    container.appendChild(msgDiv);
+    container.scrollTop = container.scrollHeight;
 
-    state.messages.push({ role: 'assistant', content: reply });
-    addMessage('assistant', reply);
+    const bubble = document.getElementById('streaming-bubble');
+    let fullText = '';
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
 
-    // Auto-log session
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      for (const line of chunk.split('\n')) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6);
+        if (data === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            fullText += parsed.delta.text;
+            bubble.innerHTML = formatMessage(fullText);
+            container.scrollTop = container.scrollHeight;
+          }
+        } catch(e) {}
+      }
+    }
+
+    bubble.removeAttribute('id');
+    state.messages.push({ role: 'assistant', content: fullText });
     logSession(state.currentPromptKey, text);
 
   } catch (err) {
     removeTyping(typingId);
-    addMessage('assistant', `⚠️ Error: ${err.message}. Check your API key in settings.`);
+    addMessage('assistant', '⚠️ Error: ' + err.message + '. Check your API key in settings.');
   }
 
   document.getElementById('send-btn').disabled = false;
